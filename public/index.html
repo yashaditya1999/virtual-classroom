@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>WebRTC</title>
+	<style>
+		*{
+			box-sizing: border-box;
+		}
+		body{
+			margin: auto;
+		}
+		h1{
+			text-align: center;
+		}
+		video{
+			display: inline-block;
+			width:200px;
+			height: 200px;
+			margin: auto;
+		}
+		button{
+			display: block;
+			margin: auto;
+			margin-top: 10px;
+		}
+	</style>
+</head>
+<body>
+	<section>
+		<section>
+			<video id="localVideo" style="position: fixed; height: 100px; width: 100px;" autoplay playsinline muted></video>
+		</section>
+		<section id="remoteVideo"></section>
+		<!-- <button onclick="getMedia();">GetMedia</button> -->
+		<!-- <button onclick="startRTC();">StartRTC</button> -->	
+	<input type="text" name="" id="un">
+	<button onclick="setUn();">SetUn</button>
+	<button onclick="callRTC();" id='call'>Call</button>
+	</section>
+	<script>
+		'use strict';
+		let c=0;
+		let un=document.getElementById('un');
+		let stream=null, constraints={'video':true,'audio':true}, rtcpc={}, rI=0;
+		let cred=null,websocket=null;
+		function setUn(){
+			un=un.value;
+			cred={"type":"cred",'uid':un};
+			websocket = new WebSocket('ws://localhost:8080');
+			websocket.onopen = function(event){
+				console.log('connected');
+				websocket.send(JSON.stringify(cred));
+			}
+			websocket.onmessage = function(event) {
+				console.log("websocket.onmessage");
+				//console.log(event.data);
+				const message=JSON.parse(event.data);
+				console.log(message);
+				if(message.type=="cred"){
+					callRTC(message.uid);
+				}
+				if(message.type=="offer"){
+				//	rI++;
+					startRTC(message.un);
+					rtcpc[message.un].setRemoteDescription(new RTCSessionDescription(message.sd));
+					console.log(message.un);
+					rtcpc[message.un].createAnswer(
+						function(sessionDescription){
+							console.log('Setting create answer session description');
+							console.log(sessionDescription);
+							rtcpc[message.un].setLocalDescription(sessionDescription);
+							websocket.send(JSON.stringify({type:'answer',un:message.un,sd:sessionDescription}));
+						},
+						function(err){
+							console.log('Create offer'+err);
+						}
+					);
+				}
+				if(message.type=="answer"){
+					rtcpc[message.un].setRemoteDescription(new RTCSessionDescription(message.sd));
+					console.log(message.un);
+				}
+				if(message.type=="candidate"){
+					rtcpc[message.un].addIceCandidate(new RTCIceCandidate(message.candidate));
+				}
+			}
+		}
+		async function getMedia(){
+			try {
+				stream = await navigator.mediaDevices.getUserMedia(constraints);
+				console.log('Got MediaStream:', stream);
+				//var tracks = stream.getTracks();
+				//console.log(tracks);
+				const videoElement = document.getElementById('localVideo');
+				videoElement.srcObject = stream;
+			} catch(error) {
+				console.error('Error accessing media devices.', error);
+			}
+		}
+		getMedia();
+		function callRTC(unn){
+			startRTC(unn);
+			rtcpc[unn].createOffer(
+				function(sessionDescription){
+					console.log('Setting session description');
+					//console.log(sessionDescription);
+					rtcpc[unn].setLocalDescription(sessionDescription);
+					let sdd={type:'offer',un:unn,sd:sessionDescription};
+					console.log(sdd);
+					websocket.send(JSON.stringify(sdd));
+				},
+				function(err){
+					console.log('Create offer'+err);
+				}
+			);
+		}
+		function startRTC(unn){
+			rtcpc[unn]= new RTCPeerConnection({
+				iceServers:[
+					{
+						urls: 'turn:relay.backups.cz',
+						credential: 'webrtc',
+						username: 'webrtc'
+					}
+				]
+			});
+			rtcpc[unn].onicecandidate = function(event){
+				console.log('onicecandidate');
+				//console.log(event);
+				if(event.candidate){
+					//console.log(event.candidate.toJSON());
+					websocket.send(JSON.stringify({
+						type:"candidate",
+						un:unn,
+						candidate: event.candidate.toJSON(),
+					}, null, 2));
+				}
+				else console.log("End of candidates");
+			}
+			rtcpc[unn].onaddstream = function(event){
+				console.log('onaddstream');
+				//console.log(event);
+				const videoSec = document.querySelector('#remoteVideo');
+				const videoE= document.createElement("VIDEO");
+				videoE.setAttributeNode(document.createAttribute("autoplay"));
+				videoE.setAttributeNode(document.createAttribute("playsinline"));
+				videoE.setAttributeNode(document.createAttribute("muted"));
+				videoSec.appendChild(videoE);
+				videoE.srcObject=event.stream;
+				console.log(event.stream);
+				/* videoElement.srcObject = event.stream;
+				videoElement.onloadedmetadata = function(e){
+					console.log('Loaded metadata' +e);
+					videoElement.play();
+				} */
+			}/* 
+			rtcpc[rI].onremovestream = function(event){
+				console.log('onremovestream');
+				//console.log(event);
+			} */
+			rtcpc[unn].addStream(stream);
+		}
+	</script>
+</body>
+</html>
