@@ -1,4 +1,5 @@
 const http = require('http');
+const fs = require('fs');
 const httpServer = http.createServer();
 const PORT = process.env.PORT||8080;
 const WebSocket = require('ws');
@@ -55,20 +56,10 @@ httpServer.on('request', (request, response) => {
 	response.on('error', (err) => {
 		console.error(err);
 	});
-	if (request.url === '/inde.html') {
-		response.writeHead(200, {'Content-Type': 'text/plain'});
-		response.end('Hello');
+	if (request.url === '/') {
+		response.writeHead(200, { 'content-type': 'text/html' });
+		fs.createReadStream('public/index.html').pipe(response);
 	}
-	else if (request.method==='POST') {
-		response.writeHead(200, {'Content-Type': 'text/plain'});
-		response.write('Hello ');
-		response.end('POST World');
-	}
-	else if (request.method==='GET') {
-		response.writeHead(200, {'Content-Type': 'text/plain'});
-		response.write('Hello ');
-		response.end('GET World');
-	} 
 	else {
 		response.statusCode = 404;
 		response.end();
