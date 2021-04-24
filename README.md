@@ -10,3 +10,7 @@ To **run**:
 npm i
 npm start
 ```
+Then visit
+``` bash
+127.0.0.1:8080
+```
