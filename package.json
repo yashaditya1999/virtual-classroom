@@ -8,7 +8,7 @@
     "start": "node server.js"
   },
   "author": "Yash Aditya",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "ws": "^7.3.1"
   }
