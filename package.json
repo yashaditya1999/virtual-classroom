@@ -1,5 +1,5 @@
 {
-  "name": "wsserver",
+  "name": "virtual-classroom",
   "version": "1.0.0",
   "description": "WebSocket Server",
   "main": "server.js",
